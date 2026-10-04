@@ -23,6 +23,9 @@ import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 
 // Модель відповіді від нашого FastAPI бекенду
 data class NoteResponse(
@@ -75,7 +78,8 @@ fun MainScreen() {
                 val result = callBackendApi(trimmed)
                 uiState = UiState.Success(result)
             } catch (e: Exception) {
-                uiState = UiState.Error("Помилка з'єднання: ${e.localizedMessage ?: "Бекенд недоступний"}")
+                // Замість технічного e.localizedMessage виводимо зрозумілий текст
+                uiState = UiState.Error(getReadableErrorMessage(e))
             }
         }
     }
@@ -151,6 +155,29 @@ fun MainScreen() {
                 OutlinedButton(onClick = { sendRequest() }) {
                     Text("Повторити спробу")
                 }
+            }
+        }
+    }
+}
+
+
+fun getReadableErrorMessage(e: Throwable): String {
+    return when (e) {
+        is ConnectException ->
+            "🔌 Сервер недоступний. Переконайтеся, що бекенд запущено на комп'ютері."
+        is SocketTimeoutException ->
+            "⏳ Час очікування вичерпано. Сервер або ШІ відповідають занадто довго. Спробуйте ще раз."
+        is UnknownHostException ->
+            "📡 Немає підключення до мережі. Перевірте з'єднання."
+        else -> {
+            val msg = e.message ?: ""
+            when {
+                msg.contains("422") ->
+                    "Текст нотатки занадто короткий або некоректний. Напишіть детальніше."
+                msg.contains("500") ->
+                    "Тимчасовий збій обробки штучним інтелектом. Спробуйте перефразувати запит."
+                else ->
+                    "Не вдалося отримати відповідь. Будь ласка, спробуйте ще раз."
             }
         }
     }
