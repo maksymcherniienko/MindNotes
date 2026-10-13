@@ -4,16 +4,21 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.mindnotes2.data.local.AppDatabase
+import com.example.mindnotes2.data.local.NoteEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -21,10 +26,10 @@ import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
 import java.net.ConnectException
+import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
+import java.net.URL
 import java.net.UnknownHostException
 
 // Модель відповіді від нашого FastAPI бекенду
@@ -61,9 +66,14 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainScreen() {
+    val context = LocalContext.current
+    val database = remember { AppDatabase.getInstance(context) }
+    val savedNotes by database.noteDao().getAllNotes().collectAsState(initial = emptyList())
+
     var inputText by remember { mutableStateOf("") }
     var uiState by remember { mutableStateOf<UiState>(UiState.Idle) }
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     fun sendRequest() {
         val trimmed = inputText.trim()
@@ -84,76 +94,142 @@ fun MainScreen() {
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("MindNotes MVP (Lab 2)", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Поле введення
-        OutlinedTextField(
-            value = inputText,
-            onValueChange = { inputText = it },
-            label = { Text("Введіть сиру думку чи плани...") },
-            modifier = Modifier.fillMaxWidth(),
-            minLines = 3,
-            maxLines = 5
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Кнопка відправки
-        Button(
-            onClick = { sendRequest() },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = uiState !is UiState.Loading
-        ) {
-            Text("Обробити через AI Backend")
+    fun saveNote(data: NoteResponse) {
+        scope.launch(Dispatchers.IO) {
+            val entity = NoteEntity(
+                title = data.title,
+                category = data.category,
+                formatType = data.formatType,
+                structuredContent = data.structuredContent,
+                hasReminder = data.hasReminder,
+                reminderDatetime = data.reminderDatetime,
+                reasoning = data.reasoning
+            )
+            database.noteDao().insert(entity)
+            snackbarHostState.showSnackbar("Нотатку збережено локально на пристрій!")
         }
+    }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Відображення 4 станів інтерфейсу
-        when (val state = uiState) {
-            is UiState.Idle -> {
-                Text("Введіть текст та натисніть кнопку для аналізу", color = Color.Gray)
-            }
-            is UiState.Loading -> {
-                CircularProgressIndicator()
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Бекенд обробляє запит через Gemini...")
-            }
-            is UiState.Success -> {
-                Card(
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            item {
+                Text("MindNotes", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = inputText,
+                    onValueChange = { inputText = it },
+                    label = { Text("Введіть сиру думку чи плани...") },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    minLines = 3,
+                    maxLines = 5
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = { sendRequest() },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = uiState !is UiState.Loading
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("📌 Заголовок: ${state.data.title}", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Text("🏷 Категорія: ${state.data.category}", color = MaterialTheme.colorScheme.primary)
+                    Text("Зберегти...")
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                when (val state = uiState) {
+                    is UiState.Idle -> {
+                        Text("Введіть текст та натисніть кнопку для аналізу", color = Color.Gray)
+                    }
+                    is UiState.Loading -> {
+                        CircularProgressIndicator()
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("📝 Структурований текст:")
-                        Text(state.data.structuredContent, fontWeight = FontWeight.Medium)
-
-                        if (state.data.hasReminder && state.data.reminderDatetime != null) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("⏰ Нагадування: ${state.data.reminderDatetime}", color = Color(0xFFD32F2F))
+                        Text("Бекенд обробляє запит через Gemini...")
+                    }
+                    is UiState.Success -> {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "📌 Заголовок: ${state.data.title}",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 18.sp,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    IconButton(onClick = { uiState = UiState.Idle }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Закрити"
+                                        )
+                                    }
+                                }
+                                Text("🏷 Категорія: ${state.data.category}", color = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("📝 Структурований текст:")
+                                Text(state.data.structuredContent, fontWeight = FontWeight.Medium)
+                                if (state.data.hasReminder && state.data.reminderDatetime != null) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text("⏰ Нагадування: ${state.data.reminderDatetime}", color = Color(0xFFD32F2F))
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("💡 Пояснення AI: ${state.data.reasoning}", fontSize = 12.sp, color = Color.DarkGray)
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Button(
+                                    onClick = { saveNote(state.data) },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("💾 Зберегти нотатку")
+                                }
+                            }
                         }
-
+                    }
+                    is UiState.Error -> {
+                        Text(state.message, color = MaterialTheme.colorScheme.error)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("💡 Пояснення AI: ${state.data.reasoning}", fontSize = 12.sp, color = Color.DarkGray)
+                        OutlinedButton(onClick = { sendRequest() }) {
+                            Text("Повторити спробу")
+                        }
                     }
                 }
-            }
-            is UiState.Error -> {
-                Text(state.message, color = MaterialTheme.colorScheme.error)
+                Spacer(modifier = Modifier.height(24.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("📁 Збережені нотатки (${savedNotes.size})", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(onClick = { sendRequest() }) {
-                    Text("Повторити спробу")
+            }
+            if (savedNotes.isEmpty()) {
+                item {
+                    Text("Збережених нотаток ще немає.", color = Color.Gray, fontSize = 14.sp)
+                }
+            } else {
+                items(savedNotes, key = { it.id }) { note ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(note.title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text("🏷 ${note.category}", color = MaterialTheme.colorScheme.secondary, fontSize = 12.sp)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(note.structuredContent, fontSize = 14.sp)
+                            if (note.hasReminder && note.reminderDatetime != null) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("⏰ ${note.reminderDatetime}", color = Color(0xFFD32F2F), fontSize = 12.sp)
+                            }
+                        }
+                    }
                 }
             }
         }
