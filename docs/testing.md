@@ -19,13 +19,17 @@
   ```
 
 #### Android Client (Gradle / Kotlin)
-* **Запуск локальних модульних тестів (Unit Tests):**
+* **Запуск локальних модульних тестів (JVM Unit Tests):**
   ```bash
   ./gradlew testDebugUnitTest
   ```
-* **Запуск інструментальних тестів на емуляторі/пристрої (UI & Instrumental Tests):**
+* **Запуск інструментальних тестів на емуляторі/пристрої (Instrumental Tests & Room DAO):**
   ```bash
   ./gradlew connectedDebugAndroidTest
+  ```
+* **Запуск конкретно інструментального тесту бази даних Room (`NoteDaoTest`):**
+  ```bash
+  ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.mindnotes2.NoteDaoTest
   ```
 
 ---
@@ -78,3 +82,13 @@
   * UI переходить зі стану `Loading` у `UiState.Error`.
   * Відображається людинозрозуміле повідомлення (наприклад: `"🔌 Сервер недоступний"`).
   * Доступна активна кнопка «Повторити спробу» (`Retry`), введений текст не стирається.
+
+#### Сценарій 7: Персистенція та операції локальної бази даних (`NoteDaoTest`)
+* **Тип тесту:** Інструментальний тест Android (`AndroidJUnit4`) з in-memory базою Room (`Room.inMemoryDatabaseBuilder`).
+* **Тест 1 (Додавання та отримання):**
+  * Створюється тестова нотатка `NoteEntity`, викликається `noteDao.insert(note)`.
+  * Отримується потік `noteDao.getAllNotes().first()`.
+  * Очікуваний результат: `notes.size == 1`, збережені поля (заголовок, категорія, контент) повністю збігаються.
+* **Тест 2 (Видалення):**
+  * Додається нотатка, після чого викликається `noteDao.delete(insertedNote)`.
+  * Очікуваний результат: `notes.size == 0`, реактивний потік оновлюється без записів.

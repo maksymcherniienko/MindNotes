@@ -6,6 +6,13 @@
     *   Текстове поле вводу сирої нотатки з валідацією (мінімум 3 символи).
     *   Реактивне відображення 4 станів інтерфейсу через `UiState`: `Idle`, `Loading`, `Success`, `Error`.
     *   Картка результату: відображення заголовка, категорії, структурованого контенту, нагадування та пояснення AI.
+    *   Кнопка підтвердження та збереження структурованої нотатки («💾 Зберегти нотатку»).
+    *   Секція «Збережені нотатки»: реактивний список записів, що спостерігається з БД через `collectAsState`.
+    *   `SnackbarHost`: вивід підтверджень успішного збереження даних.
+*   **Local Persistence Layer (`data.local` / Room SQLite):**
+    *   `NoteEntity`: схема реляційної таблиці `notes` (первинний ключ `id`, структуровані поля та часова мітка `createdAt`).
+    *   `NoteDao`: інтерфейс доступу до даних (`insert`, `getAllNotes(): Flow<List<NoteEntity>>`, `delete`).
+    *   `AppDatabase`: потокобезпечний Singleton екземпляр Room Database.
 *   **Network / Integration Layer (`callBackendApi`):**
     *   HTTP-клієнт (`HttpURLConnection`) у корутині `Dispatchers.IO` з таймаутами (connect: 5s, read: 15s).
     *   Серіалізація тіла запиту `{"text": "..."}` у JSON та парсинг відповіді в модель `NoteResponse`.
@@ -68,6 +75,13 @@
      │ десеріалізація в NoteResponse
      ▼
 [MainScreen (UI)]
+     │
      ▼
 [UiState.Success] ──► Відображення структурованої картки користувачу
+     │
+     ▼ (Користувач натискає "💾 Зберегти нотатку")
+[NoteDao.insert (Dispatchers.IO)] ──► [Room SQLite: mindnotes_database]
+     │
+     ▼ (Flow емітить новий список)
+[LazyColumn: Збережені нотатки] ◄── автоматичне оновлення UI
 ```
