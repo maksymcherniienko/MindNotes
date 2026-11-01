@@ -38,6 +38,7 @@ import com.example.mindnotes2.ui.theme.MindNotes2Theme
 data class NoteResponse(
     val title: String,
     val category: String,
+    val priority: String = "MEDIUM",
     val formatType: String,
     val structuredContent: String,
     val hasReminder: Boolean,
@@ -104,6 +105,7 @@ fun MainScreen() {
             val entity = NoteEntity(
                 title = data.title,
                 category = data.category,
+                priority = data.priority,
                 formatType = data.formatType,
                 structuredContent = data.structuredContent,
                 hasReminder = data.hasReminder,
@@ -186,6 +188,12 @@ fun MainScreen() {
                                     }
                                 }
                                 Text("🏷 Категорія: ${state.data.category}", color = MaterialTheme.colorScheme.primary)
+                                val (priorityLabel, priorityColor) = when (state.data.priority) {
+                                    "HIGH" -> "⚡ Високий" to Color(0xFFD32F2F)
+                                    "LOW" -> "☕ Низький" to Color(0xFF388E3C)
+                                    else -> "📌 Середній" to Color(0xFFF57C00)
+                                }
+                                Text("⚡ Пріоритет: $priorityLabel", color = priorityColor, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text("📝 Структурований текст:")
                                 Text(state.data.structuredContent, fontWeight = FontWeight.Medium)
@@ -251,7 +259,19 @@ fun MainScreen() {
                                     )
                                 }
                             }
-                            Text("🏷 ${note.category}", color = MaterialTheme.colorScheme.secondary, fontSize = 12.sp)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("🏷 ${note.category}", color = MaterialTheme.colorScheme.secondary, fontSize = 12.sp)
+                                val (badgeText, badgeColor) = when (note.priority) {
+                                    "HIGH" -> "⚡ Високий" to Color(0xFFD32F2F)
+                                    "LOW" -> "☕ Низький" to Color(0xFF388E3C)
+                                    else -> "📌 Середній" to Color(0xFFF57C00)
+                                }
+                                Text(badgeText, color = badgeColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(note.structuredContent, fontSize = 14.sp)
                             if (note.hasReminder && note.reminderDatetime != null) {
@@ -312,6 +332,7 @@ suspend fun callBackendApi(rawText: String): NoteResponse = withContext(Dispatch
         return@withContext NoteResponse(
             title = json.getString("title"),
             category = json.getString("category"),
+            priority = json.optString("priority", "MEDIUM"),
             formatType = json.getString("format_type"),
             structuredContent = json.getString("structured_content"),
             hasReminder = json.getBoolean("has_reminder"),

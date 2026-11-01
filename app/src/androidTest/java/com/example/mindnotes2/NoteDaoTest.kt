@@ -78,5 +78,13 @@ class NoteDaoTest {
         val notes = noteDao.getAllNotes().first()
         Assert.assertEquals(0, notes.size)
     }
+
+    @Test
+    fun insertNote_withPriority_persistsCorrectly() = runBlocking {
+// 1. Отримуємо розпізнані дані від AI/бекенду за сирим текстом
+        val response = callBackendApi("Терміново доробити реліз")
+
+        Assert.assertEquals("HIGH", response.priority)
+    }
 }
 

@@ -5,14 +5,14 @@
 *   **UI Layer (`MainScreen`):**
     *   Текстове поле вводу сирої нотатки з валідацією (мінімум 3 символи).
     *   Реактивне відображення 4 станів інтерфейсу через `UiState`: `Idle`, `Loading`, `Success`, `Error`.
-    *   Картка результату: відображення заголовка, категорії, структурованого контенту, нагадування та пояснення AI.
+    *   Картка результату: відображення заголовка, категорії, пріоритету (HIGH/MEDIUM/LOW), структурованого контенту, нагадування та пояснення AI.
     *   Кнопка підтвердження та збереження структурованої нотатки («💾 Зберегти нотатку»).
     *   Секція «Збережені нотатки»: реактивний список записів, що спостерігається з БД через `collectAsState`, з можливістю видалення запису через кнопку-іконку смітника (`Icons.Default.Delete`).
     *   `SnackbarHost`: вивід підтверджень успішного збереження та видалення даних.
 *   **Local Persistence Layer (`data.local` / Room SQLite):**
-    *   `NoteEntity`: схема реляційної таблиці `notes` (первинний ключ `id`, структуровані поля та часова мітка `createdAt`).
+    *   `NoteEntity`: схема реляційної таблиці `notes` (первинний ключ `id`, `priority`, структуровані поля та часова мітка `createdAt`).
     *   `NoteDao`: інтерфейс доступу до даних (`insert`, `getAllNotes(): Flow<List<NoteEntity>>`, `delete`).
-    *   `AppDatabase`: потокобезпечний Singleton екземпляр Room Database.
+    *   `AppDatabase`: потокобезпечний Singleton екземпляр Room Database (v2, `fallbackToDestructiveMigration`).
 *   **Network / Integration Layer (`callBackendApi`):**
     *   HTTP-клієнт (`HttpURLConnection`) у корутині `Dispatchers.IO` з таймаутами (connect: 5s, read: 15s).
     *   Серіалізація тіла запиту `{"text": "..."}` у JSON та парсинг відповіді в модель `NoteResponse`.
@@ -28,7 +28,7 @@
     *   `POST /api/v1/notes/analyze` — основний ендпоінт прийому та обробки нотаток.
 *   **Validation & DTOs (Pydantic моделі):**
     *   `NoteAnalyzeRequest`: валідація вхідного тексту (довжина 3–2000 символів, очищення від пробілів).
-    *   `NoteAnalyzeResponse`: сувора типізація вихідного контракту (`title`, `category`, `format_type`, `structured_content`, `has_reminder`, `reminder_datetime`, `reasoning`).
+    *   `NoteAnalyzeResponse`: сувора типізація вихідного контракту (`title`, `category`, `priority`, `format_type`, `structured_content`, `has_reminder`, `reminder_datetime`, `reasoning`).
 *   **Service / Processing Pipeline:**
     *   Перевірка наявності API ключа (`GEMINI_API_KEY`).
     *   Маршрутизація запиту до хмарного AI або до локального fallback-рушія.

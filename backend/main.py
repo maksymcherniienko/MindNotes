@@ -29,6 +29,7 @@ class NoteAnalyzeRequest(BaseModel):
 class NoteAnalyzeResponse(BaseModel):
     title: str
     category: str
+    priority: str = "MEDIUM"  # HIGH, MEDIUM, LOW
     format_type: str  # TEXT, CHECKLIST, BULLET_LIST
     structured_content: str
     has_reminder: bool
@@ -83,6 +84,7 @@ def local_analyze(text: str) -> NoteAnalyzeResponse:
     return NoteAnalyzeResponse(
         title=title,
         category=category,
+        priority="HIGH" if any(w in lower for w in ["терміново", "важливо", "дедлайн", "аварійно", "негайно"]) else ("LOW" if category == "Покупки" and not has_reminder else "MEDIUM"),
         format_type=format_type,
         structured_content=structured_content,
         has_reminder=has_reminder,
@@ -134,6 +136,7 @@ def analyze_note(request: NoteAnalyzeRequest):
         {{
             "title": "Короткий заголовок (3-5 слів)",
             "category": "Навчання" | "Робота" | "Покупки" | "Особисте" | "Плани" | "Здоров'я",
+            "priority": "HIGH" | "MEDIUM" | "LOW",
             "format_type": "CHECKLIST" | "BULLET_LIST" | "TEXT",
             "structured_content": "відформатований текст списком або абзацами",
             "has_reminder": true чи false,

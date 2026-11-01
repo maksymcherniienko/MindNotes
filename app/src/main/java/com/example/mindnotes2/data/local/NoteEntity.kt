@@ -9,6 +9,7 @@ data class NoteEntity(
     val id: Long = 0L,
     val title: String,
     val category: String,
+    val priority: String = "MEDIUM",
     val formatType: String,
     val structuredContent: String,
     val hasReminder: Boolean,
