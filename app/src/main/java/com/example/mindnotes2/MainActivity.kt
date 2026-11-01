@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,6 +32,7 @@ import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
 import java.net.URL
 import java.net.UnknownHostException
+import com.example.mindnotes2.ui.theme.MindNotes2Theme
 
 // Модель відповіді від нашого FastAPI бекенду
 data class NoteResponse(
@@ -55,8 +57,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
+            MindNotes2Theme(darkTheme = false) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
                     MainScreen()
                 }
             }
@@ -107,6 +112,13 @@ fun MainScreen() {
             )
             database.noteDao().insert(entity)
             snackbarHostState.showSnackbar("Нотатку збережено локально на пристрій!")
+        }
+    }
+
+    fun deleteNote(note: NoteEntity) {
+        scope.launch(Dispatchers.IO) {
+            database.noteDao().delete(note)
+            snackbarHostState.showSnackbar("Нотатку видалено")
         }
     }
 
@@ -220,7 +232,25 @@ fun MainScreen() {
                         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
-                            Text(note.title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = note.title,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(onClick = { deleteNote(note) }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Видалити нотатку",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
                             Text("🏷 ${note.category}", color = MaterialTheme.colorScheme.secondary, fontSize = 12.sp)
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(note.structuredContent, fontSize = 14.sp)
